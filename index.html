@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Reading Contest Scoreboard</title>
+  <title>Bookfuckers</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -16,6 +16,7 @@
     h1 {
       text-align: center;
       margin-bottom: 5px;
+      font-size: 2em;
     }
 
     p.subtitle {
@@ -51,8 +52,13 @@
       background: #f9f4ec;
     }
 
+    .reader-cell {
+      text-align: left;
+      font-weight: bold;
+    }
+
     .medal {
-      font-size: 1.3em;
+      margin-right: 6px;
     }
 
     /* 📱 Mobile layout */
@@ -91,7 +97,7 @@
 </head>
 <body>
 
-<h1>📚 Reading Contest Scoreboard</h1>
+<h1>📚 bookfuckers</h1>
 <p class="subtitle">Who’s turning the most pages?</p>
 
 <table id="scoreboard"></table>
@@ -101,19 +107,19 @@ const url = "https://opensheet.elk.sh/1nwnbwGOc99BVsed4doQZvNfPgkNwC6bVA3FlXrLLH
 
 function findScoreColumn(data) {
   const headers = Object.keys(data[0]);
-
   const preferredNames = ["score", "points", "total"];
+
   for (let name of preferredNames) {
     const match = headers.find(h => h.toLowerCase().includes(name));
     if (match) return match;
   }
 
-  // fallback: column with most numeric values
+  // fallback: column with most numeric-looking values
   let bestCol = headers[0];
   let bestCount = 0;
 
   headers.forEach(h => {
-    let count = data.filter(r => !isNaN(parseFloat(r[h]))).length;
+    let count = data.filter(r => !isNaN(parseFloat(String(r[h]).replace(/,/g, "")))).length;
     if (count > bestCount) {
       bestCount = count;
       bestCol = h;
@@ -130,6 +136,10 @@ function getMedal(index) {
   return "";
 }
 
+function parseScore(value) {
+  return parseFloat(String(value).replace(/,/g, "")) || 0;
+}
+
 async function loadScoreboard() {
   const table = document.getElementById("scoreboard");
   table.innerHTML = "<tr><td>Loading…</td></tr>";
@@ -141,34 +151,10 @@ async function loadScoreboard() {
 
     const scoreCol = findScoreColumn(data);
 
-    data.sort((a, b) => parseFloat(b[scoreCol] || 0) - parseFloat(a[scoreCol] || 0));
+    data.sort((a, b) => parseScore(b[scoreCol]) - parseScore(a[scoreCol]));
 
-    const headers = Object.keys(data[0]);
+    const headers = Object.keys(data[0]).filter(h => h !== scoreCol);
 
-    let html = "<thead><tr><th>Rank</th>";
+    let html = "<thead><tr>";
     headers.forEach(h => html += `<th>${h}</th>`);
-    html += "</tr></thead><tbody>";
-
-    data.forEach((row, i) => {
-      html += "<tr>";
-      html += `<td class="medal">${getMedal(i)} ${i+1}</td>`;
-      headers.forEach(h => {
-        html += `<td data-label="${h}">${row[h] ?? ""}</td>`;
-      });
-      html += "</tr>";
-    });
-
-    html += "</tbody>";
-    table.innerHTML = html;
-
-  } catch (e) {
-    table.innerHTML = "<tr><td>Error loading data</td></tr>";
-  }
-}
-
-loadScoreboard();
-setInterval(loadScoreboard, 30000);
-</script>
-
-</body>
-</html>
+    html += `<th
