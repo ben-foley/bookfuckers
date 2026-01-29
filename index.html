@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Bookfuckers</title>
+  <title>bookfuckers</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -45,46 +45,33 @@
       background: #5c4033;
       color: white;
       font-weight: normal;
-      letter-spacing: 0.5px;
     }
 
-    tr:nth-child(even) {
-      background: #f9f4ec;
-    }
+    tr:nth-child(even) { background: #f9f4ec; }
 
     .reader-cell {
       text-align: left;
       font-weight: bold;
     }
 
-    .medal {
-      margin-right: 6px;
-    }
-
-    /* 📱 Mobile layout */
     @media (max-width: 600px) {
-      table, thead, tbody, th, td, tr {
-        display: block;
-      }
-
-      thead {
-        display: none;
-      }
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
 
       tr {
-        background: #fffdf8;
         margin-bottom: 12px;
-        border-radius: 8px;
         padding: 10px;
+        background: #fffdf8;
+        border-radius: 8px;
         box-shadow: 0 3px 6px rgba(0,0,0,0.08);
       }
 
       td {
-        text-align: left;
-        padding: 6px 10px;
         border: none;
         display: flex;
         justify-content: space-between;
+        padding: 6px 10px;
+        text-align: left;
       }
 
       td::before {
@@ -105,39 +92,27 @@
 <script>
 const url = "https://opensheet.elk.sh/1nwnbwGOc99BVsed4doQZvNfPgkNwC6bVA3FlXrLLHgg/Scoreboard";
 
-function findScoreColumn(data) {
-  const headers = Object.keys(data[0]);
-  const preferredNames = ["score", "points", "total"];
+function parseScore(val) {
+  return parseFloat(String(val).replace(/,/g, "")) || 0;
+}
 
-  for (let name of preferredNames) {
-    const match = headers.find(h => h.toLowerCase().includes(name));
-    if (match) return match;
+function getMedal(i) {
+  return ["🥇","🥈","🥉"][i] || "";
+}
+
+function findScoreColumn(headers, data) {
+  const preferred = ["score","points","total"];
+  for (let p of preferred) {
+    let found = headers.find(h => h.toLowerCase().includes(p));
+    if (found) return found;
   }
 
-  // fallback: column with most numeric-looking values
-  let bestCol = headers[0];
-  let bestCount = 0;
-
+  let best = headers[0], bestCount = 0;
   headers.forEach(h => {
-    let count = data.filter(r => !isNaN(parseFloat(String(r[h]).replace(/,/g, "")))).length;
-    if (count > bestCount) {
-      bestCount = count;
-      bestCol = h;
-    }
+    let count = data.filter(r => !isNaN(parseScore(r[h]))).length;
+    if (count > bestCount) { bestCount = count; best = h; }
   });
-
-  return bestCol;
-}
-
-function getMedal(index) {
-  if (index === 0) return "🥇";
-  if (index === 1) return "🥈";
-  if (index === 2) return "🥉";
-  return "";
-}
-
-function parseScore(value) {
-  return parseFloat(String(value).replace(/,/g, "")) || 0;
+  return best;
 }
 
 async function loadScoreboard() {
@@ -147,14 +122,44 @@ async function loadScoreboard() {
   try {
     const res = await fetch(url);
     const data = await res.json();
-    if (!data.length) return;
+    if (!data.length) throw "No data";
 
-    const scoreCol = findScoreColumn(data);
+    const headers = Object.keys(data[0]);
+    const scoreCol = findScoreColumn(headers, data);
+    const nameCol = headers[0]; // assumes first column is reader name
 
-    data.sort((a, b) => parseScore(b[scoreCol]) - parseScore(a[scoreCol]));
-
-    const headers = Object.keys(data[0]).filter(h => h !== scoreCol);
+    data.sort((a,b) => parseScore(b[scoreCol]) - parseScore(a[scoreCol]));
 
     let html = "<thead><tr>";
     headers.forEach(h => html += `<th>${h}</th>`);
-    html += `<th
+    html += "</tr></thead><tbody>";
+
+    data.forEach((row,i) => {
+      html += "<tr>";
+      headers.forEach(h => {
+        let val = row[h] ?? "";
+        if (h === nameCol) {
+          val = `${getMedal(i)} ${val}`;
+          html += `<td class="reader-cell" data-label="${h}">${val}</td>`;
+        } else {
+          html += `<td data-label="${h}">${val}</td>`;
+        }
+      });
+      html += "</tr>";
+    });
+
+    html += "</tbody>";
+    table.innerHTML = html;
+
+  } catch (err) {
+    table.innerHTML = "<tr><td>Error loading scoreboard</td></tr>";
+    console.error(err);
+  }
+}
+
+loadScoreboard();
+setInterval(loadScoreboard, 30000);
+</script>
+
+</body>
+</html>
