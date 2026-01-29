@@ -2,53 +2,172 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Live Scoreboard</title>
+  <title>Reading Contest Scoreboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background:#fafafa; }
-    h1 { text-align:center; }
-    table { border-collapse: collapse; width: 100%; background:white; }
-    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-    th { background: #222; color: white; }
-    tr:nth-child(even) { background: #f2f2f2; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background: #f4efe6;
+      color: #3b2f2f;
+      padding: 15px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 5px;
+    }
+
+    p.subtitle {
+      text-align: center;
+      margin-top: 0;
+      font-style: italic;
+      color: #6b5b53;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fffdf8;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #e6ded3;
+      text-align: center;
+    }
+
+    th {
+      background: #5c4033;
+      color: white;
+      font-weight: normal;
+      letter-spacing: 0.5px;
+    }
+
+    tr:nth-child(even) {
+      background: #f9f4ec;
+    }
+
+    .medal {
+      font-size: 1.3em;
+    }
+
+    /* 📱 Mobile layout */
+    @media (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tr {
+        background: #fffdf8;
+        margin-bottom: 12px;
+        border-radius: 8px;
+        padding: 10px;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+      }
+
+      td {
+        text-align: left;
+        padding: 6px 10px;
+        border: none;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        color: #5c4033;
+      }
+    }
   </style>
 </head>
 <body>
 
-<h1>Live Scoreboard</h1>
+<h1>📚 Reading Contest Scoreboard</h1>
+<p class="subtitle">Who’s turning the most pages?</p>
+
 <table id="scoreboard"></table>
 
 <script>
-  const url = "https://opensheet.elk.sh/1nwnbwGOc99BVsed4doQZvNfPgkNwC6bVA3FlXrLLHgg/Scoreboard";
+const url = "https://opensheet.elk.sh/1nwnbwGOc99BVsed4doQZvNfPgkNwC6bVA3FlXrLLHgg/Scoreboard";
 
-  async function loadScoreboard() {
-    const table = document.getElementById("scoreboard");
-    table.innerHTML = "<tr><td>Loading…</td></tr>";
+function findScoreColumn(data) {
+  const headers = Object.keys(data[0]);
 
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (!data.length) {
-        table.innerHTML = "<tr><td>No data found</td></tr>";
-        return;
-      }
-
-      const headers = Object.keys(data[0]);
-      let html = "<tr>" + headers.map(h => `<th>${h}</th>`).join("") + "</tr>";
-
-      data.forEach(row => {
-        html += "<tr>" + headers.map(h => `<td>${row[h] ?? ""}</td>`).join("") + "</tr>";
-      });
-
-      table.innerHTML = html;
-    } catch (e) {
-      table.innerHTML = "<tr><td>Error loading data</td></tr>";
-    }
+  const preferredNames = ["score", "points", "total"];
+  for (let name of preferredNames) {
+    const match = headers.find(h => h.toLowerCase().includes(name));
+    if (match) return match;
   }
 
-  loadScoreboard();
-  setInterval(loadScoreboard, 30000); // refresh every 30 sec
+  // fallback: column with most numeric values
+  let bestCol = headers[0];
+  let bestCount = 0;
+
+  headers.forEach(h => {
+    let count = data.filter(r => !isNaN(parseFloat(r[h]))).length;
+    if (count > bestCount) {
+      bestCount = count;
+      bestCol = h;
+    }
+  });
+
+  return bestCol;
+}
+
+function getMedal(index) {
+  if (index === 0) return "🥇";
+  if (index === 1) return "🥈";
+  if (index === 2) return "🥉";
+  return "";
+}
+
+async function loadScoreboard() {
+  const table = document.getElementById("scoreboard");
+  table.innerHTML = "<tr><td>Loading…</td></tr>";
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.length) return;
+
+    const scoreCol = findScoreColumn(data);
+
+    data.sort((a, b) => parseFloat(b[scoreCol] || 0) - parseFloat(a[scoreCol] || 0));
+
+    const headers = Object.keys(data[0]);
+
+    let html = "<thead><tr><th>Rank</th>";
+    headers.forEach(h => html += `<th>${h}</th>`);
+    html += "</tr></thead><tbody>";
+
+    data.forEach((row, i) => {
+      html += "<tr>";
+      html += `<td class="medal">${getMedal(i)} ${i+1}</td>`;
+      headers.forEach(h => {
+        html += `<td data-label="${h}">${row[h] ?? ""}</td>`;
+      });
+      html += "</tr>";
+    });
+
+    html += "</tbody>";
+    table.innerHTML = html;
+
+  } catch (e) {
+    table.innerHTML = "<tr><td>Error loading data</td></tr>";
+  }
+}
+
+loadScoreboard();
+setInterval(loadScoreboard, 30000);
 </script>
 
 </body>
