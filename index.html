@@ -100,21 +100,6 @@ function getMedal(i) {
   return ["🥇","🥈","🥉"][i] || "";
 }
 
-function findScoreColumn(headers, data) {
-  const preferred = ["score","points","total"];
-  for (let p of preferred) {
-    let found = headers.find(h => h.toLowerCase().includes(p));
-    if (found) return found;
-  }
-
-  let best = headers[0], bestCount = 0;
-  headers.forEach(h => {
-    let count = data.filter(r => !isNaN(parseScore(r[h]))).length;
-    if (count > bestCount) { bestCount = count; best = h; }
-  });
-  return best;
-}
-
 async function loadScoreboard() {
   const table = document.getElementById("scoreboard");
   table.innerHTML = "<tr><td>Loading…</td></tr>";
@@ -124,9 +109,10 @@ async function loadScoreboard() {
     const data = await res.json();
     if (!data.length) throw "No data";
 
+    // 🔍 Find columns by NAME instead of position
     const headers = Object.keys(data[0]);
-    const scoreCol = findScoreColumn(headers, data);
-    const nameCol = headers[0]; // assumes first column is reader name
+    const nameCol = headers.find(h => h.toLowerCase().includes("reader")) || headers[0];
+    const scoreCol = headers.find(h => h.toLowerCase().includes("score")) || headers[1];
 
     data.sort((a,b) => parseScore(b[scoreCol]) - parseScore(a[scoreCol]));
 
@@ -138,6 +124,7 @@ async function loadScoreboard() {
       html += "<tr>";
       headers.forEach(h => {
         let val = row[h] ?? "";
+
         if (h === nameCol) {
           val = `${getMedal(i)} ${val}`;
           html += `<td class="reader-cell" data-label="${h}">${val}</td>`;
